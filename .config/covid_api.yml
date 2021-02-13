@@ -4,7 +4,7 @@ api_main:
     status:
         api: /v1/status.json
         keys:
-            - buildTime
+          - buildTime
     endpoints:
         - name: states
           api: /v1/states/info.csv

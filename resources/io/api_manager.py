@@ -9,6 +9,8 @@ import os.path as path
 from collections import defaultdict
 
 def rename_keys(kval_pair, key='name'):
+    """Utility function for changing *key* on (key, value) pairs."""
+
     old_key, contents = kval_pair 
     if key in contents.keys():
         new_key = contents[key]
@@ -25,17 +27,27 @@ class apiManager():
         self._monitor_api = monitor_api
         self._parse_config_file(path)
 
-    def fetch(self):
-        self._make_dirs()
-        for endpoint_name in self.endpoints:
-            endpoint_api_string = self._get_api_string(endpoint_name)
-            url = self.api + endpoint_api_string
-            filename = self._get_filename(endpoint_name)
-            file_out = os.path.join(self.base_directory, endpoint_name, filename)
-            response = requests.get(url)
+    def fetch(self, force=False):
 
-            with open(file_out, 'wb') as out:
-                out.write(response.content)
+        if self._check_api_status() and not force:
+            print("Current files are up to date.\nTo force process start set *force* True.")
+        else:
+
+            print("API has been updated. Starting process...")
+            # building directory tree for incoming files
+            self._make_dirs()
+
+            # fetching/storaging files
+            for endpoint_name in self.endpoints:
+                endpoint_api_string = self._get_api_string(endpoint_name)
+                url = self.api + endpoint_api_string
+                filename = self._get_filename(endpoint_name)
+                file_out = os.path.join(self.base_directory, endpoint_name, filename)
+                response = requests.get(url)
+                with open(file_out, 'wb') as out:
+                    out.write(response.content)
+            
+            print('Fetching files concluded.')
 
     def _parse_config_file(self, path):
         with open(path) as file:
@@ -43,22 +55,44 @@ class apiManager():
             
             # renaming main api entries
             api_config = dict(map(rename_keys, api_config.items()))
+
+            # Setting up instance name
             self.name, contents = api_config.popitem()
 
             # renaming possible endpoints
-            print(contents.keys())
             if 'endpoints' in contents.keys():
                 renamed_endpoints = dict(
                         map(lambda pair: rename_keys(pair), enumerate(contents['endpoints']))
                     )
                 contents['endpoints'] = renamed_endpoints
             
+            # Setting up instance attributes
             self.api = contents['api']
             self.endpoints = contents['endpoints']
 
             if self._monitor_api:
                 self.status = contents['status']
     
+    def _check_api_status(self):
+        check = True
+        if self._monitor_api:
+            if '_last' not in dir(self):
+                self._last = self._make_hash()
+                check = False
+            else:
+                check = self._last == self._make_hash()
+        return check
+
+    def _make_hash(self):
+        status_api = self.api + self.status['api']
+        status_response = requests.get(status_api).json()
+        keys = self.status['keys'].copy()
+        while len(keys):
+            key = keys.pop(0)
+            status_response = status_response[key]
+        
+        return hashlib.sha1(bytes(status_response, encoding='utf-8')).hexdigest()
+
     def _make_dirs(self):
 
         for endpoint_name in self.endpoints:
@@ -83,4 +117,9 @@ if __name__ == '__main__':
     print(len(covid_api.endpoints))
     print(covid_api.base_directory)
 
-    covid_api.fetch()
+    print('Test #1')
+    covid_api.fetch() # Testing 1st use of api
+    print('Test #2')
+    covid_api.fetch() # Testing calling API (with updated status)
+    print('Test #3')
+    covid_api.fetch(force=True) # Testing Force-calling API
