@@ -18,7 +18,8 @@ def rename_keys(kval_pair, key='name'):
 
 class apiManager():
     def __init__(self, path, base_dir, monitor_api=False):
-        self.apis = self._parse_config_file(path)
+        self._monitor_api = monitor_api
+        self._parse_config_file(path)
 
     def _parse_config_file(self, path):
         with open(path) as file:
@@ -26,21 +27,29 @@ class apiManager():
             
             # renaming main api entries
             api_config = dict(map(rename_keys, api_config.items()))
-
+            self.name, contents = api_config.popitem()
             # renaming possible endpoints
-            for main_entry in api_config:
-                entry = api_config[main_entry]
-                if 'endpoints' in entry.keys():
-                    renamed_endpoints = dict(
-                            map(lambda pair: rename_keys(pair), enumerate(entry['endpoints']))
+                # entry = api_config[main_entry]
+            print(contents.keys())
+            if 'endpoints' in contents.keys():
+                renamed_endpoints = dict(
+                        map(lambda pair: rename_keys(pair), enumerate(contents['endpoints']))
                     )
-                    entry['endpoints'] = renamed_endpoints
+                contents['endpoints'] = renamed_endpoints
+            
+            self.api = contents['api']
+            self.endpoints = contents['endpoints']
+
+            if self._monitor_api:
+                self.status = contents['status']
+            
 
         return api_config
 
 # code for testing purposes
 if __name__ == '__main__':
     path = './.config/covid_api.yml'
-    covid_api = apiManager(path=path, base_dir=False)
-    print(covid_api.apis)
-    print(type(covid_api.apis))
+    covid_api = apiManager(path=path, base_dir=False, monitor_api=True)
+    print(covid_api.name)
+    print(covid_api.status['keys'])
+    print(len(covid_api.endpoints))
