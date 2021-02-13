@@ -1,0 +1,14 @@
+api_main: 
+    name: covid_tracking
+    api: https://api.covidtracking.com
+    status:
+        api: /v1/status.json
+        keys:
+            - buildTime
+    endpoints:
+        - name: states
+          api: /v1/states/info.csv
+          fields:
+            - name
+            - state
+            - notes
