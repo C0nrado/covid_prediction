@@ -7,6 +7,7 @@ import re
 import os
 import datetime
 import dateutil.tz as tz
+from collections import defaultdict
 
 class ApiManager():
     def __init__(self, path, base_dir, monitor_api=False):
@@ -107,6 +108,36 @@ class ApiManager():
         api_string = self._get_api_string(endpoint_name)
         return re.match(r".*/(.*)$", api_string).group(1)
  
+
+class HelperApiConfig():
+    """This is a helper class for *creating* a config file to be read in main ApiManager class."""
+
+    def __init__(self, name, api):
+        self.name = name
+        self.api = api
+        self.endpoints = []
+    
+    def add_status(self, **kwargs):
+        self.status = kwargs
+    
+    def add_endpoint(self, **kwargs):
+        self.endpoints.append(kwargs)
+    
+    def create(self, path):
+        config = self._get_clean_config_dict()
+        config[self.name]['api'] = self.api
+        config[self.name]['endpoints'] = self.endpoints
+
+        if hasattr(self, 'status'):
+            config[self.name]['status'] = self.status
+        
+        with open(path, 'w') as file:
+            yaml.dump(dict(config.items()), file)
+    
+    def _get_clean_config_dict(self):
+        return defaultdict(dict)
+
+
 def rename_keys(kval_pair, key='name'):
     """Utility function for changing *key* on (key, value) pairs."""
 
@@ -127,18 +158,24 @@ def current_date(strftime='%A, %Y-%m-%d %T %Z', tz=tz.UTC):
 
 
 # code for testing purposes
-# if __name__ == '__main__':
-#     path = './.config/covid_api.yml'
-#     covid_api = apiManager(path=path, base_dir='./.cache', monitor_api=True)
-#     print(covid_api.name)
-#     print(covid_api.api)
-#     print(covid_api.status['keys'])
-#     print(len(covid_api.endpoints))
-#     print(covid_api.base_directory)
+if __name__ == '__main__':
+    def testing_api(covid_api):
+        print('Test #1')
+        covid_api.fetch() # Testing 1st use of api
+        print('Test #2')
+        covid_api.fetch() # Testing calling API (with updated status)
+        print('Test #3')
+        covid_api.fetch(force=True) # Testing Force-calling API
 
-#     print('Test #1')
-#     covid_api.fetch() # Testing 1st use of api
-#     print('Test #2')
-#     covid_api.fetch() # Testing calling API (with updated status)
-#     print('Test #3')
-#     covid_api.fetch(force=True) # Testing Force-calling API
+    name = "API-covid-tracking"
+    api = "https://api.covidtracking.com"
+    dir_path = "./.cache/"
+
+    api_config = HelperApiConfig(name=name, api=api)
+    api_config.add_status(api='/v1/status.json', keys=['buildTime'])
+    api_config.add_endpoint(name="US-historical",
+                            api="/v1/us/daily.csv")
+    api_config.create(path=dir_path + "api-us-historic.yml")
+    
+    covid_api = ApiManager(path=dir_path + "api-us-historic.yml", base_dir='./.cache', monitor_api=True)
+    testing_api(covid_api)
