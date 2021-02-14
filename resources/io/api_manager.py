@@ -1,4 +1,4 @@
-# This module implements a class for managing http api's based on custom YAML config files.
+"""This module implements a class for managing http api's based on custom YAML config files."""
 
 import requests
 import hashlib
@@ -7,6 +7,7 @@ import re
 import os
 import datetime
 import dateutil.tz as tz
+from pandas import read_csv
 from collections import defaultdict
 
 class HelperApiParser():
@@ -40,14 +41,39 @@ class HelperApiParser():
             if self.monitor_api:
                 self.status = contents['status']
  
+class HelperApiRetriever():
+    """This class implements a getter in ApiManager instance."""
+
+    def __init__(self, api_instance):
+        self.api_instance = api_instance
+    
+    def retrieve(self, endpoint_name, as_dataframe=False, **kwargs):
+        instance = self.api_instance
+        output_formatter = {False: str,
+                            True: lambda data: read_csv(data, **kwargs)}
+
+        if as_dataframe and instance.endpoints[endpoint_name].get('fields'):
+            kwargs.update({'usecols': instance.endpoints[endpoint_name]['fields']})
+
+        if hasattr(instance, '_sha1'):
+            output = self[endpoint_name]
+            return output_formatter[as_dataframe](output)
+        else:
+            return None
+    
+    def __getitem__(self, endpoint_name):
+        instance = self.api_instance
+        return instance.endpoints[endpoint_name]['data']
+
 class ApiManager(HelperApiParser):
     def __init__(self, path, base_dir, monitor_api=False):
-        super().__init__(monitor_api=monitor_api)
+        HelperApiParser.__init__(self, monitor_api=monitor_api)
         assert os.path.isdir(base_dir)
         self.base_directory = os.path.abspath(base_dir)
         
-        self.monitor_api = monitor_api
         self._parse_config_file(path)
+        self._retriever = HelperApiRetriever(self)
+        self.retrieve = self._retriever.retrieve
         self.last = '' 
 
     def fetch(self, force=False):
@@ -81,13 +107,16 @@ class ApiManager(HelperApiParser):
                     print('Writing content\n')
                     out.write(response.content)
 
+                    # storing path to endpoint data
+                    self.endpoints[endpoint_name]['data'] = file_out
+
             self.last = current_date()
             print('Fetching files concluded.')
 
     def _check_api_status(self):
         check = True
         if self.monitor_api:
-            if '_sha1' not in dir(self):
+            if not hasattr(self, '_sha1'):
                 self._sha1 = self._make_hash()
                 check = False
             else:
@@ -115,7 +144,6 @@ class ApiManager(HelperApiParser):
     def _get_filename(self, endpoint_name):
         api_string = self._get_api_string(endpoint_name)
         return re.match(r".*/(.*)$", api_string).group(1)
-
 class HelperApiConfig():
     """This is a helper class for *creating* a config file to be read in
     main ApiManager class."""
@@ -195,6 +223,14 @@ if __name__ == '__main__':
         covid_api.fetch() # Testing calling API (with updated status)
         print('\n>>> Test #3: Forcing api request','\n', '='*10)
         covid_api.fetch(force=True) # Testing Force-calling API
+        print('\n>>> Test #4: Accessing endpoint data path','\n', '='*10)
+        for name in covid_api.endpoints:
+            print(covid_api.retrieve(name))
+        print('\n>>> Test #5: Retrieving DataFrame','\n', '='*10)
+        df = covid_api.retrieve(name, as_dataframe=True)
+        print(type(df))
+        print(df.head())
+
 
     name = "api-covid-tracking"
     api = "https://api.covidtracking.com"
@@ -204,7 +240,7 @@ if __name__ == '__main__':
     status = {'api':"/v1/status.json", 'keys':["buildTime"]}
     endpoints = [
         {'name':"us-historical", 'api':"/v1/us/daily.csv"},
-        {'name':"states-info", 'api':"/v1/states/info.csv"}
+        {'name':"states-info", 'api':"/v1/states/info.csv", 'fields':['state', 'name', 'notes']}
     ]
     
     make_config(api_name = name,
