@@ -9,11 +9,44 @@ import datetime
 import dateutil.tz as tz
 from collections import defaultdict
 
-class ApiManager():
+class HelperApiParser():
+    """This class is intended to provide private methods for parsing ApiManager
+    instances input path."""
+    
+    def __init__(self, monitor_api):
+        self.monitor_api = monitor_api
+
+    def _parse_config_file(self, path):
+        with open(path) as file:
+            api_config = yaml.load(file, Loader=yaml.FullLoader)
+            
+            # renaming main api entries
+            api_config = dict(map(rename_keys, api_config.items()))
+
+            # Setting up instance name
+            self.name, contents = api_config.popitem()
+
+            # renaming possible endpoints
+            if 'endpoints' in contents.keys():
+                renamed_endpoints = dict(
+                        map(lambda pair: rename_keys(pair), enumerate(contents['endpoints']))
+                    )
+                contents['endpoints'] = renamed_endpoints
+            
+            # Setting up instance attributes
+            self.api = contents['api']
+            self.endpoints = contents['endpoints']
+
+            if self.monitor_api:
+                self.status = contents['status']
+ 
+class ApiManager(HelperApiParser):
     def __init__(self, path, base_dir, monitor_api=False):
-        if os.path.isdir(base_dir):
-            self.base_directory = os.path.abspath(base_dir)
-        self._monitor_api = monitor_api
+        super().__init__(monitor_api=monitor_api)
+        assert os.path.isdir(base_dir)
+        self.base_directory = os.path.abspath(base_dir)
+        
+        self.monitor_api = monitor_api
         self._parse_config_file(path)
         self.last = '' 
 
@@ -43,7 +76,7 @@ class ApiManager():
 
                 # writing content
                 filename = self._get_filename(endpoint_name)
-                file_out = os.path.join(self.base_directory, endpoint_name, filename)
+                file_out = os.path.join(self.base_directory, self.name, endpoint_name, filename)
                 with open(file_out, 'wb') as out:
                     print('Writing content\n')
                     out.write(response.content)
@@ -51,33 +84,9 @@ class ApiManager():
             self.last = current_date()
             print('Fetching files concluded.')
 
-    def _parse_config_file(self, path):
-        with open(path) as file:
-            api_config = yaml.load(file, Loader=yaml.FullLoader)
-            
-            # renaming main api entries
-            api_config = dict(map(rename_keys, api_config.items()))
-
-            # Setting up instance name
-            self.name, contents = api_config.popitem()
-
-            # renaming possible endpoints
-            if 'endpoints' in contents.keys():
-                renamed_endpoints = dict(
-                        map(lambda pair: rename_keys(pair), enumerate(contents['endpoints']))
-                    )
-                contents['endpoints'] = renamed_endpoints
-            
-            # Setting up instance attributes
-            self.api = contents['api']
-            self.endpoints = contents['endpoints']
-
-            if self._monitor_api:
-                self.status = contents['status']
-    
     def _check_api_status(self):
         check = True
-        if self._monitor_api:
+        if self.monitor_api:
             if '_sha1' not in dir(self):
                 self._sha1 = self._make_hash()
                 check = False
@@ -96,9 +105,8 @@ class ApiManager():
         return hashlib.sha1(bytes(status_response, encoding='utf-8')).hexdigest()
 
     def _make_dirs(self):
-
         for endpoint_name in self.endpoints:
-            dir_path = os.path.join(self.base_directory, endpoint_name)
+            dir_path = os.path.join(self.base_directory, self.name, endpoint_name)
             os.makedirs(dir_path, exist_ok=True)
    
     def _get_api_string(self, endpoint_name):
@@ -107,10 +115,10 @@ class ApiManager():
     def _get_filename(self, endpoint_name):
         api_string = self._get_api_string(endpoint_name)
         return re.match(r".*/(.*)$", api_string).group(1)
- 
 
 class HelperApiConfig():
-    """This is a helper class for *creating* a config file to be read in main ApiManager class."""
+    """This is a helper class for *creating* a config file to be read in
+    main ApiManager class."""
 
     def __init__(self, name, api):
         self.name = name
@@ -131,11 +139,32 @@ class HelperApiConfig():
         if hasattr(self, 'status'):
             config[self.name]['status'] = self.status
         
-        with open(path, 'w') as file:
-            yaml.dump(dict(config.items()), file)
+        try: 
+            with open(path, 'w') as file:
+                yaml.dump(dict(config.items()), file)
+                print(f"[{current_date('%b %d. %H:%M', tz=tz.tzlocal())}] Config file created for {self.name.upper()}.\n")
+        
+        except TypeError:
+            print(f"[{current_date('%b %d. %H:%M', tz=tz.tzlocal())}] Config file for {self.name.upper()}.\n")
+            print(yaml.dump(dict(config.items()), file))
     
     def _get_clean_config_dict(self):
         return defaultdict(dict)
+
+def make_config(api_name, api_domain, output_path=None, status=None, endpoints=None):
+    """This is a helper function for creating config files for ApiManager."""
+
+    assert endpoints is not None and isinstance(endpoints, list)
+    config = HelperApiConfig(name=api_name, api=api_domain)
+
+    if status is not None:
+        config.add_status(**status)
+    
+    for endpoint in endpoints:
+        assert isinstance(endpoint, dict)
+        config.add_endpoint(**endpoint)
+    print("\n>>> CONFIG FILES MAKER")
+    config.create(output_path)
 
 
 def rename_keys(kval_pair, key='name'):
@@ -160,22 +189,30 @@ def current_date(strftime='%A, %Y-%m-%d %T %Z', tz=tz.UTC):
 # code for testing purposes
 if __name__ == '__main__':
     def testing_api(covid_api):
-        print('Test #1')
+        print('\n>>> Test #1: Testing API request','\n', '='*10)
         covid_api.fetch() # Testing 1st use of api
-        print('Test #2')
+        print('\n>>> Test #2: Testing API monitor','\n', '='*10)
         covid_api.fetch() # Testing calling API (with updated status)
-        print('Test #3')
+        print('\n>>> Test #3: Forcing api request','\n', '='*10)
         covid_api.fetch(force=True) # Testing Force-calling API
 
-    name = "API-covid-tracking"
+    name = "api-covid-tracking"
     api = "https://api.covidtracking.com"
     dir_path = "./.cache/"
+    output = dir_path + 'test-api-us-historic.yml'
 
-    api_config = HelperApiConfig(name=name, api=api)
-    api_config.add_status(api='/v1/status.json', keys=['buildTime'])
-    api_config.add_endpoint(name="US-historical",
-                            api="/v1/us/daily.csv")
-    api_config.create(path=dir_path + "api-us-historic.yml")
+    status = {'api':"/v1/status.json", 'keys':["buildTime"]}
+    endpoints = [
+        {'name':"us-historical", 'api':"/v1/us/daily.csv"},
+        {'name':"states-info", 'api':"/v1/states/info.csv"}
+    ]
     
-    covid_api = ApiManager(path=dir_path + "api-us-historic.yml", base_dir='./.cache', monitor_api=True)
+    make_config(api_name = name,
+                api_domain = api,
+                status=status,
+                endpoints=endpoints,
+                output_path=output)
+    
+
+    covid_api = ApiManager(path=dir_path + "test-api-us-historic.yml", base_dir='./.cache', monitor_api=True)
     testing_api(covid_api)
