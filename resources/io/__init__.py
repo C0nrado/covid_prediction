@@ -1,2 +1,1 @@
-from .api_manager import ApiManager
-from .api_manager import make_config
+from .api_manager import ApiManager, make_config

@@ -1,0 +1,33 @@
+api_main: 
+    name: covid-tracking
+    api: https://api.covidtracking.com
+    status:
+        api: /v1/status.json
+        keys:
+          - buildTime
+    endpoints:
+        - name: states-info
+          api: /v1/states/info.csv
+          fields:
+            - name
+            - state
+            - notes
+        - name: us-historical
+          api: /v1/us/daily.csv
+          fields:
+            - date
+            - death
+            - deathIncrease
+            - hospitalizedCumulative
+            - hospitalizedCurrently
+            - hospitalizedIncrease
+            - inIcuCumulative
+            - inIcuCurrently
+            - positive
+            - positiveIncrease
+            - negative
+            - negativeIncrease
+            - pending
+            - onVentilatorCurrently
+            - onVentilatorCumulative
+            - states
