@@ -47,7 +47,7 @@ class HelperApiRetriever():
     def __init__(self, api_instance):
         self.api_instance = api_instance
     
-    def retrieve(self, endpoint_name, as_dataframe=False, **kwargs):
+    def __call__(self, endpoint_name, as_dataframe=False, **kwargs):
         instance = self.api_instance
         output_formatter = {False: str,
                             True: lambda data: read_csv(data, **kwargs)}
@@ -56,14 +56,10 @@ class HelperApiRetriever():
             kwargs.update({'usecols': instance.endpoints[endpoint_name]['fields']})
 
         if hasattr(instance, '_sha1'):
-            output = self[endpoint_name]
+            output = instance.endpoints[endpoint_name]['data']
             return output_formatter[as_dataframe](output)
         else:
             return None
-    
-    def __getitem__(self, endpoint_name):
-        instance = self.api_instance
-        return instance.endpoints[endpoint_name]['data']
 
 class ApiManager(HelperApiParser):
     def __init__(self, path, base_dir, monitor_api=False):
@@ -72,8 +68,7 @@ class ApiManager(HelperApiParser):
         self.base_directory = os.path.abspath(base_dir)
         
         self._parse_config_file(path)
-        self._retriever = HelperApiRetriever(self)
-        self.retrieve = self._retriever.retrieve
+        self.retrieve = HelperApiRetriever(self)
         self.last = '' 
 
     def fetch(self, force=False):
@@ -215,40 +210,40 @@ def current_date(strftime='%A, %Y-%m-%d %T %Z', tz=tz.UTC):
 
 
 # code for testing purposes
-if __name__ == '__main__':
-    def testing_api(covid_api):
-        print('\n>>> Test #1: Testing API request','\n', '='*10)
-        covid_api.fetch() # Testing 1st use of api
-        print('\n>>> Test #2: Testing API monitor','\n', '='*10)
-        covid_api.fetch() # Testing calling API (with updated status)
-        print('\n>>> Test #3: Forcing api request','\n', '='*10)
-        covid_api.fetch(force=True) # Testing Force-calling API
-        print('\n>>> Test #4: Accessing endpoint data path','\n', '='*10)
-        for name in covid_api.endpoints:
-            print(covid_api.retrieve(name))
-        print('\n>>> Test #5: Retrieving DataFrame','\n', '='*10)
-        df = covid_api.retrieve(name, as_dataframe=True)
-        print(type(df))
-        print(df.head())
+# if __name__ == '__main__':
+#     def testing_api(covid_api):
+#         print('\n>>> Test #1: Testing API request','\n', '='*10)
+#         covid_api.fetch() # Testing 1st use of api
+#         print('\n>>> Test #2: Testing API monitor','\n', '='*10)
+#         covid_api.fetch() # Testing calling API (with updated status)
+#         print('\n>>> Test #3: Forcing api request','\n', '='*10)
+#         covid_api.fetch(force=True) # Testing Force-calling API
+#         print('\n>>> Test #4: Accessing endpoint data path','\n', '='*10)
+#         for name in covid_api.endpoints:
+#             print(covid_api.retrieve(name))
+#         print('\n>>> Test #5: Retrieving DataFrame','\n', '='*10)
+#         df = covid_api.retrieve(name, as_dataframe=True)
+#         print(type(df))
+#         print(df.head())
 
 
-    name = "api-covid-tracking"
-    api = "https://api.covidtracking.com"
-    dir_path = "./.cache/"
-    output = dir_path + 'test-api-us-historic.yml'
+#     name = "api-covid-tracking"
+#     api = "https://api.covidtracking.com"
+#     dir_path = "./.cache/"
+#     output = dir_path + 'test-api-us-historic.yml'
 
-    status = {'api':"/v1/status.json", 'keys':["buildTime"]}
-    endpoints = [
-        {'name':"us-historical", 'api':"/v1/us/daily.csv"},
-        {'name':"states-info", 'api':"/v1/states/info.csv", 'fields':['state', 'name', 'notes']}
-    ]
+#     status = {'api':"/v1/status.json", 'keys':["buildTime"]}
+#     endpoints = [
+#         {'name':"us-historical", 'api':"/v1/us/daily.csv"},
+#         {'name':"states-info", 'api':"/v1/states/info.csv", 'fields':['state', 'name', 'notes']}
+#     ]
     
-    make_config(api_name = name,
-                api_domain = api,
-                status=status,
-                endpoints=endpoints,
-                output_path=output)
+#     make_config(api_name = name,
+#                 api_domain = api,
+#                 status=status,
+#                 endpoints=endpoints,
+#                 output_path=output)
     
 
-    covid_api = ApiManager(path=dir_path + "test-api-us-historic.yml", base_dir='./.cache', monitor_api=True)
-    testing_api(covid_api)
+#     covid_api = ApiManager(path=dir_path + "test-api-us-historic.yml", base_dir='./.cache', monitor_api=True)
+#     testing_api(covid_api)
