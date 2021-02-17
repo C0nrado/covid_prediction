@@ -26,6 +26,7 @@ class Piper():
     # def __call__(self, df))
 
 class DataframeCustomMethods():
+    """This is class is only a container for a set to custom pandas `DataFrame` methods.""" 
 
     @staticmethod
     def convert_date_to_index(df):
@@ -45,6 +46,15 @@ class DataframeCustomMethods():
     def slice_dataframe(df, start, stop, step=None):
         slice_obj = slice(start, stop, step)
         return df.loc[start:stop]
+    
+    @staticmethod
+    def select_features(df, features):
+        return df.loc[:,features]
+    
+    @staticmethod
+    def groupby_feature(df, by, agg_func, feature):
+        return df.groupby(by=by)[feature].apply(agg_func)
+
 
 class DataframeTransformer(Piper, DataframeCustomMethods):
     def __init__(self, steps):
