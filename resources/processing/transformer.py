@@ -3,6 +3,7 @@
 import pandas as pd
 from resources.io import ApiManager
 from resources.utils import compose, curry
+from statsmodels.tsa.api import STL
 
 import os
 print(os.getcwd())
@@ -54,7 +55,16 @@ class DataframeCustomMethods():
     @staticmethod
     def groupby_feature(df, by, agg_func, feature):
         return df.groupby(by=by)[feature].apply(agg_func)
+    
+    @staticmethod
+    def apply_func(df, func):
+        print(type(func))
+        return df.apply(func)
 
+    @staticmethod
+    def smoothen(df, period, seasonal):
+        smoother = lambda endog: STL(endog, period=period, seasonal=seasonal).fit().trend
+        return df.apply(smoother, axis=0)
 
 class DataframeTransformer(Piper, DataframeCustomMethods):
     def __init__(self, steps):
