@@ -5,3 +5,4 @@ testing.py
 /data/covid-tracking/*
 __pycache__
 *.pyc
+.ipynb_checkpoints/*
