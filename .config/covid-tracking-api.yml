@@ -9,6 +9,7 @@ api_main:
         - name: states-info
           api: /v1/states/info.csv
           fields:
+            - fips
             - name
             - state
             - notes
@@ -31,3 +32,4 @@ api_main:
             - onVentilatorCurrently
             - onVentilatorCumulative
             - states
+            - recovered

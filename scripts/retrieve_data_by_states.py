@@ -38,7 +38,8 @@ config_path = os.path.join(output_dir, file_name)
 
 name = "covid-tracking"
 api_domain = "https://api.covidtracking.com"
-fields = ['state', 'deathIncrease', 'hospitalizedIncrease', 'positiveIncrease']
+fields = ['date', 'state', 'deathIncrease', 'hospitalizedIncrease', 'positiveIncrease']
+status = {'api': '/v1/status.json', 'keys':['buildTime']}
 endpoint_api_template = "/v1/states/%s/daily.csv"
 endpoints = []
 
@@ -49,12 +50,14 @@ for state in states_list:
 
 make_config(api_name = name,
         api_domain = api_domain,
+        status = status,
         endpoints = endpoints,
         output_path = config_path)
 
 # acessando a API
 covid_api = ApiManager(config_path,
-                    base_dir=output_dir)
+                    base_dir=output_dir,
+                    monitor_api=True)
 covid_api.fetch(force=True)
 
 # salvando objeto api_manager
