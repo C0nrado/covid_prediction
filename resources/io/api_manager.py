@@ -7,6 +7,7 @@ import re
 import os
 import datetime
 import dateutil.tz as tz
+from string import punctuation
 from pandas import read_csv
 from collections import defaultdict
 
@@ -55,7 +56,7 @@ class HelperApiRetriever():
         if as_dataframe and instance.endpoints[endpoint_name].get('fields'):
             kwargs.update({'usecols': instance.endpoints[endpoint_name]['fields']})
 
-        if hasattr(instance, '_sha1'):
+        if hasattr(instance, '_sha1') or (instance.last != ''):
             output = instance.endpoints[endpoint_name]['data']
             return output_formatter[as_dataframe](output)
         else:
@@ -138,7 +139,12 @@ class ApiManager(HelperApiParser):
 
     def _get_filename(self, endpoint_name):
         api_string = self._get_api_string(endpoint_name)
-        return re.match(r".*/(.*)$", api_string).group(1)
+        filename = re.match(r".*/(.*)$", api_string).group(1)
+        if len(set(punctuation) & set(filename)) == 0 :
+            return filename
+        else:
+            return ''.join(filter(lambda x: x.isalpha(), filename))
+
 class HelperApiConfig():
     """This is a helper class for *creating* a config file to be read in
     main ApiManager class."""

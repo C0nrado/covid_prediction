@@ -1,0 +1,6 @@
+api_main:
+    name: census-gov
+    api: https://api.census.gov/data
+    endpoints:
+        - name: pep-population-2019
+          api: /2019/pep/population?get=NAME,DENSITY,POP&for=STATE:*
