@@ -1,4 +1,5 @@
 """This is a python modulo for grouping plotting functions."""
+import numpy as np
 
 def parallelplot(df, category, centroids=False, interval=False, color=None, alpha=None, ax=None):
     """Plot records of DataFrame *df* in parallel coordinates in accordance to the categoriacal field *category*."""
