@@ -18,55 +18,6 @@ parser.add_argument('-i', '--input',
 
 parser.add_argument('-o', '--output', 
                 dest='output',
-                default='./dataframes',
-                help='Output directory for dumping processed data.')
-
-parser.add_argument('--consume', action='store_true',
-                help='Flag for deleting files after consumed.')
-
-args = parser.parse_args()
-assert os.path.exists(args.api_path)
-assert os.path.exists(args.output)
-
-# Recuperando o objeto api_manager
-with open(args.api_path, 'rb') as api_file:
-    covid_api = pickle.load(api_file)
-
-# Configurando pipeline
-steps = [('convert_date_to_index', None),
-        ('filling_period_index', None),
-        ('slice_dataframe', dict(start='apr-2020', stop='nov-2020')),
-        ('select_features', dict(features=['state', 'deathIncrease'])),
-        ('groupby_feature', dict(by='state', feature='deathIncrease', agg_func=np.array))]
-
-pipeline = DataframeTransformer(steps=steps)
-
-# processing states dataframes
-states_list = list(covid_api.endpoints.keys())
-states_map = map(lambda state: pipeline(covid_api.retrieve(state, as_dataframe=True)), states_list)
-states_dataframe = pd.concat(list(states_map)) \
-                        .pipe(pd.DataFrame)
-
-# aggregating other fields (fips , population & density)"""This script prepares the data for clustering."""
-
-from resources.io import ApiManager, make_config
-from resources.processing import DataframeTransformer
-import pandas as pd
-import os
-import pickle
-import argparse
-import numpy as np
-
-# configurando input do script
-parser = argparse.ArgumentParser(description="Perform the processing of states data for further deeper analysis.")
-parser.add_argument('-i', '--input',
-                type=str,
-                required=True, 
-                dest='api_path',
-                help='The input path for api manager object.')
-
-parser.add_argument('-o', '--output', 
-                dest='output',
                 default='./data/dataframes',
                 help='Output directory for dumping processed data.')
 
